@@ -31,18 +31,17 @@ def subsets(bitmask: int) -> Iterable[int]:
 
 
 def non_singleton_splits(bitmask: int) -> Iterable[Tuple[int, ...]]:
-    def visit(b: int, a: int) -> Iterable[Tuple[int, ...]]:
-        lsb = b & -b
-        if lsb == b:
-            if a:
-                yield (a + b,)
-        else:
-            yield from visit(b - lsb, a + lsb)
-            if a:
-                for xs in visit(b - lsb, 0):
-                    yield (a + lsb, *xs)
-
-    return visit(bitmask, 0)
+    if not bitmask:
+        yield ()
+        return
+    lsb = bitmask & -bitmask
+    if lsb == bitmask:
+        return
+    for a in subsets(bitmask - lsb):
+        if a == 0:
+            continue
+        for c in non_singleton_splits(bitmask - lsb - a):
+            yield (a + lsb,) + c
 
 
 def ordered_splits(bitmask: int) -> Iterable[Tuple[int, ...]]:
@@ -195,15 +194,28 @@ parser = argparse.ArgumentParser()
 parser.add_argument("numbers", type=int, nargs="*")
 
 
-tests = ["37 == 6 * 7 - 5", "505 == (4 / 4 + 100) * 50 / 10"]
+tests = [
+    "37 == 6 * 7 - 5",
+    "505 == (4 / 4 + 100) * 50 / 10",
+    "727 == (9 - 1) * 50 + (9 + 100) * 3",
+]
 
 
 def run_tests() -> None:
     for t in tests:
-        target, *xs = list(map(int, re.findall(r"\d+", t)))
+        assert eval(t), t
+        if "==" in t:
+            target, *xs = list(map(int, re.findall(r"\d+", t)))
+        else:
+            target = eval(t)
+            assert isinstance(target, int)
+            xs = list(map(int, re.findall(r"\d+", t)))
+            t = f"{target} == {t}"
+            print(t)
         xs.sort()
         res = numbers(xs)
         if t not in res.backtrack(target):
+            print(list(res.backtrack(target)))
             print("TEST FAILED: Couldn't compute %s" % t)
 
 
@@ -211,6 +223,7 @@ def main() -> None:
     assert (1, 6) in splits(7), list(splits(7))
     assert (1, 2) in ordered_splits(3)
     assert (6, 1) in ordered_splits(7)
+    assert (0b1101, 0b110010) in non_singleton_splits(0b111111)
     run_tests()
     args = parser.parse_args()
     if not args.numbers:
